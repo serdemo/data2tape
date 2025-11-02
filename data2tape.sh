@@ -2,7 +2,7 @@
 
 # Version: 1.0.1
 #
-# CAUTION: To avoid data loss don't run this script with libraries managed by another backup software. Use a separate library with a separate scratch tapes pool.
+# CAUTION: To avoid data loss don't use this script with libraries managed by another backup software. Use a separate library with a separate scratch tapes pool.
 #
 # Description:
 # This script helps automate offsite tape backups.
@@ -14,8 +14,8 @@
 # Prerequisites:
 # - ITDT utility: https://datacentersupport.lenovo.com/us/en/products/storage/tape-and-backup/ts4300-tape-library-for-lenovo/6741/downloads/driver-list/component?name=Software%20and%20Utilities&id=156BE23F-B536-4320-B35C-2F67EBDD9242
 # - lin_tape driver: https://datacentersupport.lenovo.com/us/en/products/storage/tape-and-backup/ts4300-tape-library-for-lenovo/6741/downloads/driver-list/component?name=Software%20and%20Utilities&id=156BE23F-B536-4320-B35C-2F67EBDD9242
-# - IBM/Lenovo library
-# Test environment: RHEL7, kernel: 5.15.131-1.el7.3.x86_64, driver: lin_tape v3.0.59, ITDT v9.6.2.20231114, Tape library: TS4300 Type 6741
+# - IBM/Lenovo tape library
+# Test environment: REDOS 7.3, kernel: 5.15.131-1.el7.3.x86_64, driver: lin_tape v3.0.59, ITDT v9.6.2.20231114, Tape library: TS4300 Type 6741
 
 # check required binary executables
 exit_code=0
