@@ -1,4 +1,4 @@
-# date2tape
+# data2tape
  Offsite tape backups with IBM or Lenovo tape librarires
 
 # Description:
