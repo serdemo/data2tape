@@ -47,7 +47,7 @@ SCRIPTD="$(${exec_dirname} -- "${BASH_SOURCE[0]}")"
 tmp_dir=${SCRIPTD}/tmp
 log_dir=${SCRIPTD}/log
 cfg_dir=${SCRIPTD}/cfg
-db_dir==${SCRIPTD}/db
+db_dir=${SCRIPTD}/db
 
 [[ ! -d ${tmp_dir} ]] && ${exec_mkdir} -p ${tmp_dir} 2>/dev/null
 [[ ! -d ${log_dir} ]] && ${exec_mkdir} -p ${log_dir} 2>/dev/null
@@ -78,7 +78,6 @@ lib_found=0                # initial library detection flag
 drv_found=0                # initial drive detection flag
 
 # text database variables
-db_dir=${SCRIPTD}/db
 inventory_file=${db_dir}/inventory_${site}
 dirty_tapes=${db_dir}/dirty_tapes_${site}
 tape_content=${db_dir}/tape_content_${LD}
