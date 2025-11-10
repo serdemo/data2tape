@@ -6,8 +6,8 @@
  It will automatically select a drive and a tape to write a single given directory and all of its contents or a single given file to a tape, then export the tape to a free IO slot.
 
 # Required configuration files:
- - ./cfg/lib.cfg: LIB_X_${SITE}:LIB_SERIAL:ACCESS(ALLOW|DENY)
- - ./cfg/drive.cfg: DRIVE_X_${SITE}:DRIVE_SERIAL:ACCESS(ALLOW|DENY)
+ - ./cfg/lib.cfg: LIB_X_${SITE};LIB_SERIAL;ACCESS(ALLOW|DENY)
+ - ./cfg/drive.cfg: DRIVE_X_${SITE};DRIVE_SERIAL;ACCESS(ALLOW|DENY)
 
 # Command example:
  ./data2tape.sh site1 /directory "Archive description"
