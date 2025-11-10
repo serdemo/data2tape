@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # Version: 1.0.1
 #
 # CAUTION: To avoid data loss don't use this script with libraries managed by another backup software. Use a separate library with a separate scratch tapes pool.
@@ -8,8 +7,8 @@
 # This script helps automate offsite tape backups.
 # It will automatically select a drive and a tape to write a single given directory and all of its contents or a single given file to a tape, then export the tape to a free IO slot.
 # Required configuration files
-# - ./cfg/lib.cfg: LIB_X_${SITE}:LIB_SERIAL:ACCESS(ALLOW|DENY)
-# - ./cfg/drive.cfg: DRIVE_X_${SITE}:DRIVE_SERIAL:ACCESS(ALLOW|DENY)
+# - ./cfg/lib.cfg: LIB_X_${SITE};LIB_SERIAL;ACCESS(ALLOW|DENY)
+# - ./cfg/drive.cfg: DRIVE_X_${SITE};DRIVE_SERIAL;ACCESS(ALLOW|DENY)
 # Command example: ./data2tape.sh site1 /directory "Archive description"
 # Prerequisites:
 # - ITDT utility: https://datacentersupport.lenovo.com/us/en/products/storage/tape-and-backup/ts4300-tape-library-for-lenovo/6741/downloads/driver-list/component?name=Software%20and%20Utilities&id=156BE23F-B536-4320-B35C-2F67EBDD9242
@@ -65,7 +64,7 @@ backup_ok="no" # initial state of backup task
 [[ -f ${SCRIPTD}/cfg/drive.cfg ]] && drv_cfg=${SCRIPTD}/cfg/drive.cfg || exit_code=4
 [[ -n "${3}" ]] && optional_description=" \"${3}\"" || optional_description=""
 [[ -d "${2}" || -f "${2}" ]] && data2bak="${2}" || exit_code=6
-[[ "${1,,}" =~ site1|site2 ]] && site="${1,,}" || exit_code=5
+[[ "${1,,}" =~ gvc|rvc ]] && site="${1,,}" || exit_code=5
 ok_if_empty="no" # set to yes if you need to write empty dirs to tape
 dirtydb_ok="yes" # do not change; the variable is used in update_dirtydb function
 
@@ -87,7 +86,7 @@ backups_journal=${db_dir}/offsite_backup_journal_${site}
 # Functions
 
 usage() {
-        echo "Script usage: ./${SCRIPTN} [site[1|2]] [path to file or directory] [\"optional description\"]"
+        echo "Script usage: ./${SCRIPTN} [gvc|rvc] [path to file or directory] [\"optional description\"]"
 }
 
 err_msg() {
@@ -119,7 +118,7 @@ err_msg() {
                         exit $exit_code
                         ;;
                 5 )
-                        msg="ERROR (rc ${exit_code}): provide site as first argument. Names of sites can configured in 'configuration variables and arguments' section of this script"
+                        msg="ERROR (rc ${exit_code}): provide site as first argument. Names of sites can be configured in 'configuration variables and arguments' section of this script"
                         write_log "$msg"
                         echo "$msg"
                         usage
@@ -175,7 +174,7 @@ err_msg() {
                         exit $exit_code
                         ;;
                 14 )
-                        msg="ERROR (rc ${exit_code}): can't detect available drives in config: $drv_cfg. Check configuration syntax: DRIVE_X_SITE:SERIAL:ACCESS(ALLOW|DENY)"
+                        msg="ERROR (rc ${exit_code}): can't detect available drives in config: $drv_cfg. Check configuration syntax: DRIVE_X_SITE;SERIAL;ACCESS(ALLOW|DENY)"
                         write_log "$msg"
                         echo "$msg"
                         exit $exit_code
@@ -265,7 +264,7 @@ check_datasource() {
 get_lib() {
         ${exec_ls} -ls ${dev_libr}* >/dev/null 2>&1
         if [[ $? -eq 0 ]]; then
-                lib_serial=$(${exec_cat} "$lib_cfg" | ${exec_grep} -v '#' | ${exec_grep} -i "$site" | ${exec_grep} "$access" | ${exec_awk} -F: '{print $2}')
+                lib_serial=$(${exec_cat} "$lib_cfg" | ${exec_grep} -v '#' | ${exec_grep} -i "$site" | ${exec_grep} "$access" | ${exec_awk} -F';' '{print $2}')
                 [[ -z "$lib_serial" ]] && exit_code=7 && err_msg
                 for i in $(${exec_ls} -ls ${dev_libr}* 2>/dev/null | ${exec_awk} '{print $NF}'); do
                         dev_serial=$(udevadm info --attribute-walk ${i} 2>/dev/null | ${exec_grep} -i 'serial' | ${exec_awk} -F'==' '{print $2}' | ${exec_tr} -d '"')
@@ -299,7 +298,7 @@ get_inventory() {
 
 get_tape() {
         # Prepare list of dirty tapes
-        dirty_list=$(${exec_cat} "${dirty_tapes}" 2>/dev/null | ${exec_grep} -v '#' | ${exec_awk} -F: '{print $1}' | ${exec_sed} -e 's/$/|/g' | ${exec_xargs} | ${exec_tr} -d ' '| ${exec_sed} -e 's/|$//g')
+        dirty_list=$(${exec_cat} "${dirty_tapes}" 2>/dev/null | ${exec_grep} -v '#' | ${exec_awk} -F';' '{print $1}' | ${exec_sed} -e 's/$/|/g' | ${exec_xargs} | ${exec_tr} -d ' '| ${exec_sed} -e 's/|$//g')
 
         # Get free tapes in all slots
         # Examles of source inventory data:
@@ -363,14 +362,14 @@ get_drive() {
         # Get tape device corresponding to selected slot
         ${exec_ls} -ls ${dev_tape}* >/dev/null 2>&1
         if [[ $? -eq 0 ]]; then
-                drv_serial=$(${exec_cat} "$drv_cfg" 2>/dev/null | ${exec_grep} -i "$site" | ${exec_grep} "_${drv_num}_" | ${exec_awk} -F: '{print $2}')
+                drv_serial=$(${exec_cat} "$drv_cfg" 2>/dev/null | ${exec_grep} -i "$site" | ${exec_grep} "_${drv_num}_" | ${exec_awk} -F';' '{print $2}')
                 [[ -z "$drv_serial" ]] && exit_code=15 && err_msg
                 for i in $(${exec_ls} -ls ${dev_tape}* 2>/dev/null | ${exec_awk} '{print $NF}'); do
                         dev_serial=$(udevadm info --attribute-walk ${i} 2>/dev/null | ${exec_grep} -i 'serial' | ${exec_awk} -F'==' '{print $2}' | ${exec_tr} -d '"')
                         if [[ "$drv_serial" == "$dev_serial" ]]; then
                                 # set selected tape drive device
                                 drive_dev=$i
-                                drive_name=$(${exec_cat} "$drv_cfg" 2>/dev/null | ${exec_grep} -i "$site" | ${exec_grep} "_${drv_num}_" | ${exec_awk} -F: '{print $1}')
+                                drive_name=$(${exec_cat} "$drv_cfg" 2>/dev/null | ${exec_grep} -i "$site" | ${exec_grep} "_${drv_num}_" | ${exec_awk} -F';' '{print $1}')
                                 write_log "INFO: selected device: $drive_dev; drive: $drive_name (${drv_serial}) for site $site"
                                 drv_found=1
                                 break
@@ -421,11 +420,11 @@ update_dirtydb() {
         # update dirty tapes database
         if [[ ! -f ${dirty_tapes} ]]; then
                 # create dirty tapes database file if it doesn't exist
-                ${exec_touch} ${dirty_tapes} 2>/dev/null && echo "#TAPE_ID:TAPE_DESC" > ${dirty_tapes} || dirtydb_ok="no"
+                ${exec_touch} ${dirty_tapes} 2>/dev/null && echo "#TAPE_ID;TAPE_DESC" > ${dirty_tapes} || dirtydb_ok="no"
         else
                 # remove the tapes which are no longer present in the library
                 tape_to_remove=""
-                for tape in $(${exec_cat} ${dirty_tapes} 2>/dev/null | ${exec_grep} -v 'TAPE_ID:TAPE_DESC' | ${exec_awk} -F: '{print $1}'); do
+                for tape in $(${exec_cat} ${dirty_tapes} 2>/dev/null | ${exec_grep} -v 'TAPE_ID;TAPE_DESC' | ${exec_awk} -F';' '{print $1}'); do
                         [[ "${tape_to_remove}" == "" ]] && tape_to_remove=$([[ $(${exec_grep} ${tape} ${inventory_file}) ]] || echo ${tape}) \
                                 || tape_to_remove=${tape_to_remove}$([[ $(${exec_grep} ${tape} ${inventory_file}) ]] || echo "|${tape}")
                 done
@@ -440,7 +439,7 @@ update_dirtydb() {
 
         # add tape to dirty list
         Dbak=$(${exec_date} +"%Y-%m-%d")
-        echo "${tape_id}:Backup_${Dbak}${optional_description}" >> ${dirty_tapes} 2>/dev/null || dirtydb_ok="no"
+        echo "${tape_id};Backup_${Dbak}${optional_description}" >> ${dirty_tapes} 2>/dev/null || dirtydb_ok="no"
 
         [[ "$dirtydb_ok" == "no" ]] && write_log "WARNING: can't update dirty tapes database - ${dirty_tapes}. This may cause tapes with data be rewritten!!!" && \
                 return 0 || write_log "INFO: dirty tapes database was updated"
@@ -500,7 +499,7 @@ export_tape() {
                 exit_code=22
         fi
 
-        [[ -n ${msg_out} ]] && echo $msg_out && write_log "$msg_out"
+        [[ -n "${msg_out}" ]] && echo "$msg_out" && write_log "$msg_out"
         [[ ${exit_code} -ne 0 ]] && err_msg
 
 }
@@ -510,12 +509,12 @@ write_journal() {
 
         # create journal file if it doesn't exist
         if [[ ! -f ${backups_journal} ]]; then
-                ${exec_touch} ${backups_journal} 2>/dev/null && echo "#DATE/TIME:STATUS:SITE:TAPE_ID:TAPE_LOCATION:DATASOURCE:DESCRIPTION" > ${backups_journal} || journal_ok="no"
+                ${exec_touch} ${backups_journal} 2>/dev/null && echo "#DATE/TIME;STATUS;SITE;TAPE_ID;TAPE_LOCATION;DATASOURCE;DESCRIPTION" > ${backups_journal} || journal_ok="no"
         fi
 
         # add record to journal file
         if [[ "$backup_ok" == "yes" ]]; then
-                echo "${DTB}:SUCCESS:${site}:${tape_id}:${export_slot}:Offsite backup of ${data2bak}:${optional_description}" \
+                echo "${DTB};SUCCESS;${site};${tape_id};${export_slot};Offsite backup of ${data2bak};${optional_description}" \
                         >> ${backups_journal} 2>/dev/null || journal_ok="no"
         fi
 
