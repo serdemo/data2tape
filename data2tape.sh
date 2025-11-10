@@ -1,5 +1,5 @@
 #!/bin/bash
-# Version: 1.0.1
+# Version: 1.0.2
 #
 # CAUTION: To avoid data loss don't use this script with libraries managed by another backup software. Use a separate library with a separate scratch tapes pool.
 #
@@ -52,7 +52,7 @@ db_dir=${SCRIPTD}/db
 [[ ! -d ${log_dir} ]] && ${exec_mkdir} -p ${log_dir} 2>/dev/null
 [[ ! -d ${cfg_dir} ]] && ${exec_mkdir} -p ${cfg_dir} 2>/dev/null
 [[ ! -d ${db_dir} ]] && ${exec_mkdir} -p ${db_dir} 2>/dev/null
-[[ ! -d ${tmp_dir} || ! -d ${log_dir} || ! -d ${cfg_dir} || ! -d ${db_dir} ]] && exit_code=2 
+[[ ! -d ${tmp_dir} || ! -d ${log_dir} || ! -d ${cfg_dir} || ! -d ${db_dir} ]] && exit_code=2
 
 # variables for logging and error handling
 LD=$(${exec_date} +'%Y%m%d')
@@ -65,8 +65,9 @@ backup_ok="no" # initial state of backup task
 [[ -n "${3}" ]] && optional_description=" \"${3}\"" || optional_description=""
 [[ -d "${2}" || -f "${2}" ]] && data2bak="${2}" || exit_code=6
 [[ "${1,,}" =~ gvc|rvc ]] && site="${1,,}" || exit_code=5
-ok_if_empty="no" # set to yes if you need to write empty dirs to tape
-dirtydb_ok="yes" # do not change; the variable is used in update_dirtydb function
+ok_if_empty="no"   # set to yes if you need to write empty dirs to tape
+dirtydb_ok="yes"   # do not change; the variable is used in update_dirtydb function
+bak_mode="offsite" # possible valuees: offsite - tape is exported to io slot | onsite - tape remains in the libraryr after backup is finished
 
 # device variables and flags
 access="ALLOW"             # select only those items from inventory which are marked by 'ALLOW' flag
@@ -94,12 +95,12 @@ err_msg() {
         case "$exit_code" in
                 1 )
                         msg="ERROR (rc ${exit_code}): check that the following programs are installed: \
-				grep date itdt tar sed awk cat tr mv ls xargs touch mkdir dirname basename"
+                                grep date itdt tar sed awk cat tr mv ls xargs touch mkdir dirname basename"
                         write_log "$msg"
                         echo "$msg" | ${exec_xargs}
                         exit $exit_code
                         ;;
-		2 )
+                2 )
                         msg="ERROR (rc ${exit_code}): failed to create required directory structure. Check permissions."
                         write_log "$msg"
                         echo "$msg"
@@ -396,19 +397,19 @@ mount_tape() {
 
 write_tape() {
         # start writing data to tape
-	echo "INFO: starting transfer of ${is_datatype} ${data2bak} to tape $tape_id"
+        echo "INFO: starting transfer of ${is_datatype} ${data2bak} to tape $tape_id"
         write_log "INFO: starting transfer of ${is_datatype} ${data2bak} to tape $tape_id"
-	${exec_tar} -b256 -cvf ${drive_dev} ${data2bak} > "${tape_content}_${tape_id}" 2>&1
+        ${exec_tar} -b256 -cvf ${drive_dev} ${data2bak} > "${tape_content}_${tape_id}" 2>&1
         # check exit code
         if [[ $? -eq 0 ]]; then
                 backup_ok="yes"
                 DTB=$(${exec_date} +"%Y-%m-%d %T")
-		echo "INFO: finished transfer of ${is_datatype} ${data2bak} to tape $tape_id"
+                echo "INFO: finished transfer of ${is_datatype} ${data2bak} to tape $tape_id"
                 write_log "INFO: finished transfer of ${is_datatype} ${data2bak} to tape $tape_id"
         else
                 DTB=$(${exec_date} +"%Y-%m-%d %T")
-		echo "CRITICAL: $data2bak backup failed"
-		write_log "CRITICAL: $data2bak backup failed"
+                echo "CRITICAL: $data2bak backup failed"
+                write_log "CRITICAL: $data2bak backup failed"
                 exit_code=20
                 err_msg
         fi
@@ -504,6 +505,25 @@ export_tape() {
 
 }
 
+unload_tape() {
+
+        export_slot=${slot_id}
+        #move tape to export slot
+        $exec_itdt -f ${libr} move ${drv_num} ${export_slot}
+        if [[ $? -eq 0 ]]; then
+                msg_out="INFO: unloaded tape $tape_id to library slot ${export_slot} in library ${libr}"
+        else
+                echo "ERROR: tape unloading failed. Check log file $log_file"
+                err_msg_21="itdt failed to unload tape $tape_id to library slot ${export_slot}"
+                export_slot="Drive ${drv_num}"
+                exit_code=21
+        fi
+
+        [[ -n "${msg_out}" ]] && echo "$msg_out" && write_log "$msg_out"
+        [[ ${exit_code} -ne 0 ]] && err_msg
+
+}
+
 write_journal() {
         args="$@"
 
@@ -542,10 +562,10 @@ write_tape
 
 update_dirtydb
 
-export_tape
+[[ "$bak_mode" == "offsite" ]] && export_tape
+[[ "$bak_mode" == "onsite" ]] && unload_tape
 
 write_journal
 
 [[ "$backup_ok" == "yes" ]] && echo "INFO: $data2bak backup finished successfuly" && write_log "INFO: $data2bak backup finished successfuly"
 [[ "$backup_ok" == "no" ]] && echo "CRITICAL: $data2bak backup failed" && write_log "CRITICAL: $data2bak backup failed"
-
