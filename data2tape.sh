@@ -64,7 +64,7 @@ backup_ok="no" # initial state of backup task
 [[ -f ${SCRIPTD}/cfg/drive.cfg ]] && drv_cfg=${SCRIPTD}/cfg/drive.cfg || exit_code=4
 [[ -n "${3}" ]] && optional_description=" \"${3}\"" || optional_description=""
 [[ -d "${2}" || -f "${2}" ]] && data2bak="${2}" || exit_code=6
-[[ "${1,,}" =~ gvc|rvc ]] && site="${1,,}" || exit_code=5
+[[ "${1,,}" =~ site1|site2 ]] && site="${1,,}" || exit_code=5
 ok_if_empty="no"   # set to yes if you need to write empty dirs to tape
 dirtydb_ok="yes"   # do not change; the variable is used in update_dirtydb function
 bak_mode="offsite" # possible valuees: offsite - tape is exported to io slot | onsite - tape remains in the libraryr after backup is finished
@@ -87,7 +87,7 @@ backups_journal=${db_dir}/offsite_backup_journal_${site}
 # Functions
 
 usage() {
-        echo "Script usage: ./${SCRIPTN} [gvc|rvc] [path to file or directory] [\"optional description\"]"
+        echo "Script usage: ./${SCRIPTN} [site1|site2] [path to file or directory] [\"optional description\"]"
 }
 
 err_msg() {
