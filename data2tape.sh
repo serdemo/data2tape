@@ -527,6 +527,9 @@ unload_tape() {
 write_journal() {
         args="$@"
 
+        [[ "$bak_mode" == "offsite" ]] && backups_journal=${db_dir}/offsite_backup_journal_${site}
+        [[ "$bak_mode" == "onsite" ]] && backups_journal=${db_dir}/onsite_backup_journal_${site}
+
         # create journal file if it doesn't exist
         if [[ ! -f ${backups_journal} ]]; then
                 ${exec_touch} ${backups_journal} 2>/dev/null && echo "#DATE/TIME;STATUS;SITE;TAPE_ID;TAPE_LOCATION;DATASOURCE;DESCRIPTION" > ${backups_journal} || journal_ok="no"
